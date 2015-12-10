@@ -1,0 +1,5 @@
+ticketmonster (0.1-1) unstable; urgency=low
+
+  * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+
+ -- root <root@1a4a0c90347a>  Wed, 09 Dec 2015 21:28:30 +0000
