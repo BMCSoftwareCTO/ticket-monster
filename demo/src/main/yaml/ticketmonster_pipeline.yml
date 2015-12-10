@@ -1,0 +1,109 @@
+name: "ticketmonster_pipeline"
+vars:
+  oldDBContainerName: ""
+  oldTMContainerName: ""
+stages: 
+  - 
+    name: "Init"
+    description: "Initialize this pipelines required variables and datasets"
+    steps:
+      - 
+        name: "Check current deployed Ticket Monster container"
+        description: "Checks the current deployed version of Ticket Monster"
+        targets: ($app.target.host)
+        action: "nsh::nexec docker ps -a -f 'name=($app.docker.tm.container.name)$'"
+        vars:
+          oldTMContainerName: "regex::(($app.docker.tm.container.name))"
+      - 
+        name: "Check current deployed DB container"
+        description: "Checks the current deployed version of DB"
+        targets: ($app.target.host)
+        action: "nsh::nexec docker ps -a -f 'name=($app.docker.db.container.name)$'"
+        vars:
+          oldDBContainerName: "regex::(($app.docker.db.container.name))"          
+  - 
+    name: QA
+    description: "Deploy Ticket Monster in QA environment"
+    steps: 
+      -
+        name: "Stop the application in QA Environment if necessary"
+        targets: ($app.target.host)
+        action: "nsh::nexec echo Stopping the app in QA if necessary"                
+        evals:
+          -
+            eval: "$oldTMContainerName !=''"
+            steps:        
+              -
+                name: "Stop the application in QA Environment"
+                targets: ($app.target.host)
+                action: "nsh::nexec docker stop ($app.docker.tm.container.name)"                
+              -
+                name: "Remove the application in QA Environment"
+                targets: ($app.target.host)
+                action: "nsh::nexec docker rm ($app.docker.tm.container.name)"    
+      -
+        name: "Backup and stop the DB in QA Environment if necessary"
+        targets: ($app.target.host)
+        action: "nsh::nexec echo Stopping the DB in QA if necessary"                
+        evals:
+          -
+            eval: "$oldDBContainerName !=''"
+            steps:        
+              -
+                name: "Backup the DB in QA Environment1"
+                targets: ($app.target.host)
+                action: "nsh::nexec bash -c /root/ticketmonster/ticketmonster_db_dump.sh"                                                                           
+              -
+                name: "Stop the DB in QA Environment"
+                targets: ($app.target.host)
+                action: "nsh::nexec docker stop ($app.docker.db.container.name)"                
+              -
+                name: "Remove the DB in QA Environment"
+                targets: ($app.target.host)
+                action: "nsh::nexec docker rm ($app.docker.db.container.name)"    
+      -
+        name: "Download the DB to QA Environment"
+        targets: ($app.target.host)
+        action: "nsh::nexec docker pull ($app.docker.db.image.name):($app.docker.db.image.tag)"
+      -
+        name: "Start the DB in QA Environment"
+        targets: ($app.target.host)
+        action: "nsh::nexec docker run --name ($app.docker.db.container.name) -d -p ($app.docker.db.container.port):5432 -e POSTGRES_USER=ticketmonster -e POSTGRES_PASSWORD=ticketmonster-docker ($app.docker.db.image.name):($app.docker.db.image.tag)"                
+      -
+        name: "Wait for some time to let the DB come up"
+        targets: ($app.target.host)
+        action: "nsh::nexec sleep ($app.sleep.interval)"        
+        evals:
+          -
+            eval: "$oldDBContainerName !=''"
+            steps:        
+              -
+                name: "Restore the DB in QA Environment1"
+                targets: ($app.target.host)
+                action: "nsh::nexec bash -c /root/ticketmonster/ticketmonster_db_import.sh"                                                                                   
+      -
+        name: "Download the application to QA Environment"
+        targets: ($app.target.host)
+        action: "nsh::nexec docker pull ($app.docker.registry.host):($app.docker.registry.port)/($app.docker.tm.image.name):($app.docker.tm.image.tag)"
+      -
+        name: "Start the application in QA Environment"
+        targets: ($app.target.host)
+        action: "nsh::nexec docker run --name ($app.docker.tm.container.name) -d -p ($app.docker.tm.container.port):8080 -e DB_HOST=($app.target.host) ($app.docker.registry.host):($app.docker.registry.port)/($app.docker.tm.image.name):($app.docker.tm.image.tag)"
+      -
+        name: "Wait for Ticket Monster to start in environment"
+        targets: ($app.target.host)
+        action: "nsh::nexec sleep 30"
+      -
+        name: "Check if Ticket Monster deployment is successful"
+        targets: ($app.target.host)
+        action: "nsh::nexec sudo curl -I ($app.qa.url)"
+        vars:  
+          httpResponseCode: "regex::(?<=HTTP\\/1.1 )(\\d+)"
+        evals:
+        -
+          eval: "$httpResponseCode != 200"
+          steps:
+            -
+              name: "Ticket Monster deployment failed so exiting pipeline"              
+              action: "exit::1 -msg='Fail the pipeline since Ticket Monster deployment failed'"
+        

@@ -1,0 +1,171 @@
+name: "sprint6_demoapp_pipeline_bluegreen"
+vars:
+  oldDBContainerName: ""
+  oldTMContainerName: ""
+stages: 
+  - 
+    name: QA
+    description: "Deploy the Application in QA environment"
+    vars: 
+      branchCoveragePercentage: "" 
+      functionalCoverageResult: ""
+      oldDBContainerName: ""
+      oldTMContainerName: "ticketmonster"
+    steps: 
+      -
+        name: "Stop the application in QA Environment if necessary"
+        targets: ($app.target.host)
+        action: "nsh::nexec echo Stopping the app in QA if necessary"                
+        evals:
+          -
+            eval: "$oldTMContainerName !=''"
+            steps:        
+              -
+                name: "Stop the application in QA Environment"
+                targets: ($app.target.host)
+                action: "nsh::nexec docker stop ($app.docker.tm.container.name)"                
+              -
+                name: "Remove the application in QA Environment"
+                targets: ($app.target.host)
+                action: "nsh::nexec docker rm ($app.docker.tm.container.name)"    
+      -
+        name: "Download the application to QA Environment"
+        targets: ($app.target.host)
+        action: "nsh::nexec docker pull ($app.docker.registry.host):($app.docker.registry.port)/($app.docker.tm.image.name):($app.docker.tm.image.tag)"
+      -
+        name: "Start the application in QA Environment"
+        targets: ($app.target.host)
+        action: "nsh::nexec docker run --name ($app.docker.tm.container.name) -d -p ($app.qa.docker.tm.container.port):8080 -e DB_HOST=($app.target.host) ($app.docker.registry.host):($app.docker.registry.port)/($app.docker.tm.image.name):($app.docker.tm.image.tag)"
+      -
+        name: "Wait for Ticket Monster to start in environment"
+        targets: ($app.target.host)
+        action: "nsh::nexec sleep 40"
+      -
+        name: "Check if Ticket Monster deployment is successful"
+        targets: ($app.target.host)
+        action: "nsh::nexec sudo curl -I ($app.qa.url)"
+        vars:  
+          httpResponseCode: "regex::(?<=HTTP\\/1.1 )(\\d+)"
+        evals:
+        -
+          eval: "$httpResponseCode != 200"
+          steps:
+            -
+              name: "Ticket Monster deployment failed so exiting pipeline"              
+              action: "exit::1 -msg='Fail the pipeline since Ticket Monster deployment failed'"
+      -
+        name: "Get Approval from QA manager"
+        targets: ($app.target.host)
+        action: "approval::wait -to=($app.qa.manager) -subject='APPROVAL REQUEST - ($app.name) version ($app.docker.tm.image.tag) hosted in QA at URL: ($app.qa.url) is ready for deployment to production. Continue deployment into QA?' -template=templates/approval_request.vm -appName='($app.name)' -appVersion=($app.version) -jiraissueslink=($app.project.jira.issues) -appUrl=($app.qa.url) -totalUnitTests=($app.totalUnitTests) -UTPassPercentage=($app.UTPassPercentage) -codeCoverage=($app.codeCoverage) -highFindBugs=($app.highFindBugs) -totalFunctionalTests=($app.totalFunctionalTests) -functionalTestPassPercentage=($app.functionalTestPassPercentage) -host=($app.mail.smtp.host) -port=($app.mail.smtp.port) -mail.smtp.auth=($app.mail.smtp.auth) -mail.smtp.starttls.enable=($app.mail.smtp.starttls.enable) -senderId=($app.mail.smtp.user) -mail.smtp.password=($app.mail.smtp.password) -senderName='($app.mail.smtp.sendername)'"              
+  -
+    name: GREEN
+    description: Production environment Deployment section
+    vars: 
+      httpResponseCode: ""
+      greenIPTag: ""
+      blueIPTag: ""
+      greenIDTag: ""
+      blueIDTag: ""
+    steps:
+    # stop the container blue.
+    #  -
+    #    name: "Download the DB to Green Environment"
+    #    targets: ($app.docker.green.host)
+    #    action: "nsh::nexec docker pull ($app.docker.db.image.name):($app.docker.db.image.tag)"
+    #  -
+    #    name: "Start the DB in Green Environment"
+    #    targets: ($app.docker.green.host)
+    #    action: "nsh::nexec docker run --name ($app.docker.db.container.name) -d -p ($app.docker.db.container.port):5432 -e POSTGRES_USER=ticketmonster -e POSTGRES_PASSWORD=ticketmonster-docker ($app.docker.db.image.name):($app.docker.db.image.tag)"                
+      -
+        name: "Retrieve the green tag info from aws"
+        targets: ($app.docker.green.host)
+        action: "aws::network/tag/search -elb galapagos-elb" 
+        vars:
+          greenIPTag: "regex::(?<=greenIP,Value: )(\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b)"
+          blueIPTag: "regex::(?<=blueIP,Value: )(\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b)"
+          greenIDTag: "regex::(?<=greenID,Value: )([a-zA-Z0-9-]+)"
+          blueIDTag: "regex::(?<=blueID,Value: )([a-zA-Z0-9-]+)"
+      -
+        name: "Stop the application in Green Environment if necessary"
+        targets: "$greenIPTag"
+        action: "nsh::nexec echo Stopping the app in Green if necessary"                
+        evals:
+          -
+            eval: "$oldTMContainerName !=''"
+            steps:        
+              -
+                name: "Stop the application in Green Environment"
+                targets: "$greenIPTag"
+                action: "nsh::nexec docker stop ($app.docker.tm.container.name)"                
+              -
+                name: "Remove the application in Green Environment"
+                targets: "$greenIPTag"
+                action: "nsh::nexec docker rm ($app.docker.tm.container.name)" 
+      -
+        name: "Download the application to Green Environment"
+        targets: "$greenIPTag"
+        action: "nsh::nexec docker pull ($app.docker.registry.host):($app.docker.registry.port)/($app.docker.tm.image.name):($app.docker.tm.image.tag)"
+      -
+        name: "Start the application in Green Environment"
+        targets: "$greenIPTag"
+        action: "nsh::nexec docker run --name ($app.docker.tm.container.name) -d -p ($app.docker.tm.container.port):8080 -e DB_HOST=($app.docker.db.host) ($app.docker.registry.host):($app.docker.registry.port)/($app.docker.tm.image.name):($app.docker.tm.image.tag)"
+      -
+        name: "Wait for Ticket Monster to start in Green environment"
+        targets: "$greenIPTag"
+        action: "nsh::nexec sleep 55"
+      -
+        name: "Check if Ticket Monster deployment is successful"
+        targets: "$greenIPTag"
+        action: "nsh::nexec sudo curl -I http://$greenIPTag:($app.application.host.probe.path)"
+        vars:  
+          httpResponseCode: "regex::(?<=HTTP\\/1.1 )(\\d+)"
+        evals:
+            -   
+              eval: "$httpResponseCode != 200"
+              steps:
+                  -
+                    name: "Ticket Monster deployment failed so exiting pipeline"              
+                    action: "exit::1 -msg='Fail the pipeline since Ticket Monster deployment failed'"        
+
+      -
+        name: "Register Load Balancer with green host"
+        targets: "$greenIPTag"
+        action: "aws::network/registerInstances -elb='galapagos-elb' -instances='$greenIDTag' -pollInterval=5 -probePath='HTTP:($app.application.host.probe.path)' -unhealthyThreshold=2 -healthyThreshold=5 -timeout=2"
+      -
+        name: "Deregister blue host from Load Balancer"
+        targets: "$blueIPTag"
+        action: "aws::network/unregisterInstances -elb='galapagos-elb' -instances='$blueIDTag'"
+      
+      -
+        name: "Check LoadBalancer vip"
+        description: "This ensures the loadbalancer is able to route requests which should ideally reach the green, since blue is deregistered."
+        targets: "$greenIPTag"
+        action: "nsh::nexec sudo curl -I ($app.loadbalancer.url):($app.application.loadbalancer.probe.path)"
+        evals:
+          -
+            eval: "$httpResponseCode != 200"
+            steps:
+                -
+                  name: "Rollback to Blue cluster"
+                  targets: "$blueIPTag"
+                  action: "aws::network/registerInstances -elb='galapagos-elb' -instances='$blueIDTag' -pollInterval=5 -probePath='HTTP:($app.application.host.probe.path)' -unhealthyThreshold=2 -healthyThreshold=5 -timeout=10"
+                -
+                  name: "Deregister green"
+                  targets: "$greenIPTag"
+                  action: "aws::network/unregisterInstances -elb='galapagos-elb' -instances='$greenIDTag'"
+                  
+            # do nothing with tags in case of rollback.
+            
+          -
+            eval: 
+            # now flip the tags for blue green both ip and id.
+            steps:
+                -
+                  name: "set tags"
+                  targets: "$blueIPTag"
+                  action: "aws::network/tag -elb galapagos-elb -tag blueID=$greenIDTag -tag greenID=$blueIDTag -tag blueIP=$greenIPTag -tag greenIP=$blueIPTag"
+                -
+                  name: "Notify New version deployed in production"
+                  description: "This step emails about the prod deployment success"
+                  targets: ($app.target.host)
+                  action: "email::send -to=($app.project.team) -subject='INFO - ($app.name) version ($app.version) build ($app.docker.tm.image.tag) deployed successfully into production' -body='Congratulations on the successful deployment into production for ($app.name) version ($app.version) build ($app.docker.tm.image.tag). The app in production is accessible at the URL: ($app.loadbalancer.url).' -host=($app.mail.smtp.host) -port=($app.mail.smtp.port) -mail.smtp.auth=($app.mail.smtp.auth) -mail.smtp.starttls.enable=($app.mail.smtp.starttls.enable) -senderId=($app.mail.smtp.user) -mail.smtp.password=($app.mail.smtp.password) -senderName='($app.mail.smtp.sendername)'"
