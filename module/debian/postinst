@@ -6,7 +6,7 @@ sudo groupadd -r jboss -g 999
 sudo useradd -u 999 -r -g jboss -m -d /opt/jboss -c "JBoss user" jboss 
 sudo chmod 755 /opt/jboss
 
-sudo /opt/wildfly/bin/add-user.sh -u admin -p docker#admin --silent
+sudo /opt/jboss/wildfly/bin/add-user.sh -u admin -p docker#admin --silent
 sudo rm -rf /opt/jboss/wildfly/standalone/configuration/standalone_xml_history
 sudo chown -R jboss:jboss /opt/jboss/wildfly/
 	
