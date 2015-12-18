@@ -14,5 +14,5 @@ sudo su - jboss
 cd /opt/jboss
 /opt/jboss/wildfly/customization/execute.sh standalone standalone-ha.xml
 #/opt/jboss/wildfly/bin/standalone.sh -b `hostname -i` -bmanagement `hostname -i` -c standalone-ha.xml &
-/opt/jboss/wildfly/bin/standalone.sh -b `hostname -i` -c standalone-ha.xml &
+/opt/jboss/wildfly/bin/standalone.sh -b `hostname -i` --server-config=standalone-ha.xml &
 
