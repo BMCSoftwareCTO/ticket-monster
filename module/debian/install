@@ -1,1 +1,2 @@
-ticket-monster.war /var/lib/tomcat7/webapps
+ticket-monster.war /opt/jboss/wildfly/standalone/deployments/
+customization /opt/jboss/wildfly/customization/
