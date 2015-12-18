@@ -1,14 +1,17 @@
 #!/bin/sh
-sudo groupadd -r jboss -g 1000
-sudo useradd -u 1000 -r -g jboss -m -d /opt/jboss -s /sbin/nologin -c "JBoss user" jboss 
+
+#sudo groupadd -r jboss -g 1000
+sudo groupadd -r jboss -g 999
+#sudo useradd -u 1000 -r -g jboss -m -d /opt/jboss -s /sbin/nologin -c "JBoss user" jboss 
+sudo useradd -u 999 -r -g jboss -m -d /opt/jboss -c "JBoss user" jboss 
 sudo chmod 755 /opt/jboss
 
-sudo /opt/jboss/wildfly/bin/add-user.sh -u admin -p docker#admin --silent
+sudo /opt/wildfly/bin/add-user.sh -u admin -p docker#admin --silent
 sudo rm -rf /opt/jboss/wildfly/standalone/configuration/standalone_xml_history
 sudo chown -R jboss:jboss /opt/jboss/wildfly/
 	
-su - jboss
+sudo su - jboss
 cd /opt/jboss
 /opt/jboss/wildfly/customization/execute.sh standalone standalone-ha.xml
-/opt/jboss/wildfly/bin/standalone.sh -b `hostname -i` -bmanagement `hostname -i` -c standalone-ha.xml
+/opt/jboss/wildfly/bin/standalone.sh -b `hostname -i` -bmanagement `hostname -i` -c standalone-ha.xml &
 
