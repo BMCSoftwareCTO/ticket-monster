@@ -1,2 +1,2 @@
 ticket-monster.war /opt/jboss/wildfly/standalone/deployments/
-customization /opt/jboss/wildfly/customization/
+customization /opt/jboss/wildfly/
