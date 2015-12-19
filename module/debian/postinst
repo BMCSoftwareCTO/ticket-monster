@@ -17,4 +17,7 @@ sudo /opt/jboss/wildfly/customization/execute.sh standalone standalone-ha.xml
 #sudo /opt/jboss/wildfly/bin/standalone.sh -b 0.0.0.0 --server-config=standalone-ha.xml
 nohup sh -c 'sudo /opt/jboss/wildfly/bin/standalone.sh -b 0.0.0.0 --server-config=standalone-ha.xml &'
 
+exit 0
+
+
 
