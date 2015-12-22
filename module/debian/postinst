@@ -21,7 +21,7 @@ sudo touch /etc/init.d/startWildfly.sh
 sudo chmod a+w /etc/init.d/startWildfly.sh
 echo "sudo /opt/jboss/wildfly/customization/execute.sh standalone standalone-ha.xml" >> /etc/init.d/startWildfly.sh
 sudo chmod a+x /etc/init.d/startWildfly.sh
-sudo update-rc.d startWildfly.sh defaults
+#sudo update-rc.d startWildfly.sh defaults
 
 
 
