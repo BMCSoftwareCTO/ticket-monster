@@ -1,4 +1,4 @@
-ticketmonster (2.7.0-#TM_VERSION#) unstable; urgency=low
+ticketmonster (0.1-1) unstable; urgency=low
 
   * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
 
