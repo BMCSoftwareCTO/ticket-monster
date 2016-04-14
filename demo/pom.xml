@@ -68,6 +68,9 @@
         <version.jboss.bom.eap>6.3.2.GA</version.jboss.bom.eap>
         <version.jboss.bom.wfk>2.7.0-redhat-1</version.jboss.bom.wfk>
         <buildhelper.plugin.version>1.7</buildhelper.plugin.version>
+        <!--dockerRegistry>localhost:5000/dslm/</dockerRegistry-->
+        <dockerImageName>${project.name}</dockerImageName>
+        <dockerImageTag>latest</dockerImageTag>        
     </properties>
 
     <dependencyManagement>
@@ -302,7 +305,85 @@
                             <skip>true</skip>
                         </configuration>
                     </plugin>
-                </plugins>
+                    
+                    <!-- Copy Docker files -->
+                    <plugin>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <version>1.7</version>
+                        <executions>
+                            <execution>
+                                <id>ant-copydockerfiles</id>
+                                <phase>process-resources</phase>
+                                <configuration>
+                                    <target>
+                                        <copy todir="${project.build.directory}/docker" >  
+                                            <fileset dir="src/main/docker">  
+                                                <include name="**/*"/>
+                                            </fileset>
+                                        </copy>                                    
+                                    </target>
+                                </configuration>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                            </execution>
+        
+                            <!-- Convert Windows to Unix eol for .sh scripts -->
+                            <execution>
+                                <id>ant-fixeol</id>
+                                <phase>prepare-package</phase>
+                                <configuration>
+                                    <tasks>
+                                        <fixcrlf srcdir="${project.build.directory}/docker/customization" eol="unix"
+                                            includes="*.sh" />
+                                    </tasks>
+                                </configuration>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                            </execution>
+                            
+                            <execution>
+                                <id>ant-copywar</id>
+                                <phase>package</phase>
+                                <configuration>
+                                    <target>
+                                        <copy todir="${project.build.directory}/docker" >  
+                                            <fileset dir="${project.build.directory}">  
+                                                <include name="*.war"/>
+                                            </fileset>
+                                        </copy>                                    
+                                    </target>
+                                </configuration>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                            </execution>
+                            
+                        </executions>
+                    </plugin>
+                    
+                    
+                    <!-- Build docker image -->
+                    <plugin>
+                        <groupId>com.spotify</groupId>
+                        <artifactId>docker-maven-plugin</artifactId>
+                        <version>0.3.1</version>
+                        <configuration>
+                            <imageName>${dockerImageName}:${dockerImageTag}</imageName>
+                            <dockerDirectory>${project.build.directory}/docker</dockerDirectory>
+                            <resources>
+                                <resource>
+                                    <targetPath></targetPath>
+                                    <directory>${project.build.directory}/docker</directory>
+                                    <includes>
+                                        <include>**/*</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </plugin>                    
+                </plugins>                
             </build>
         </profile>
 
