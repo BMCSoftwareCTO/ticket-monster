@@ -370,7 +370,7 @@
                         <artifactId>docker-maven-plugin</artifactId>
                         <version>0.3.1</version>
                         <configuration>
-                            <imageName>${dockerImageName}:${dockerImageTag}</imageName>
+                            <imageName>bmcgalapagos/${dockerImageName}:${dockerImageTag}</imageName>
                             <dockerDirectory>${project.build.directory}/docker</dockerDirectory>
                             <resources>
                                 <resource>
